@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# remount root rw
+mount -o remount,rw /
+
+# prapare target paths
+mkdir -p /chroot
+mkdir -p /chroot/{bin,boot,dev,etc,home,lib,opt,proc,root,run,sbin,sys,tmp,usr,var}
+
+# mount special filesystems
+mount -t proc proc /chroot/proc
+mount --bind /sys /chroot/sys
+mount --bind /dev /chroot/dev
+mount --bind /run /chroot/run
+
+# bind rw directories
+for f in {home,var}; do mount --rbind /${f}_org /chroot/$f; done
+
+# bind remaining directories
+### for f in {bin,boot,etc,lib,opt,root,run,sbin,tmp,usr}; do mount --rbind /$f /chroot/$f; done
+for f in {bin,boot,etc,lib,opt,root,sbin,tmp,usr}; do mount --rbind /$f /chroot/$f; done
+
+# chroot
+echo "Note: /boot is still mounted read-only, remount to read-write if needed."
+echo -e "\e[33mYou are now in read-write chroot. Use CTRL+D when done to exit chroot and mount read-only again.\e[39m"
+chroot /chroot /usr/bin/env PS1="(rw) \u@\h:\w\$ " /bin/bash --noprofile -l
+
+# unmount mounts
+mount | grep /chroot/ | cut -f3 -d " " | sort -r | xargs umount -n
+
+## for f in /chroot/{bin,boot,dev,etc,home,lib,opt,proc,root,run,sbin,sys,tmp,usr,var}; do
+## umount -l $f
+## done
+
+sleep 1
+
+# remount read-only again
+echo -e "\e[32mChroot left, re-mounting read-only again.\e[39m"
+mount -o remount,ro /
